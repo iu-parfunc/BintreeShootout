@@ -1,4 +1,7 @@
 
+Find some example results and plots in this Google Doc:
+   https://docs.google.com/document/d/1p1x4cbClFCrnBmYn2FddfNC2ZgtYTJKwy2XLzPxO1Wg/edit
+
 
 [2016.01.06] {Rough initial results}
 ----------------------------------------
