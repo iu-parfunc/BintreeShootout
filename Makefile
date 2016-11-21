@@ -5,14 +5,21 @@
 all: treebench_mlton.exe treebench_ocaml.exe \
      treebench_rust.exe treebench.class c ghc
 
-c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe treebench_c_parallel.exe 
+c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe treebench_c_parallel.exe \
+   treebench_c_packed.exe treebench_c_packed_loop.exe treebench_c_packed_structs.exe treebench_c_packed_parallel3.exe
 
-ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe 
+# These are unfinished, or behaving badly:
+# treebench_c_packed_parallel.exe 
+# treebench_c_packed_parallel2.exe
+
+ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe treebench_ghc_packed.exe
 
 
 # Disabling for now, requires beta channel of rust:
 # treebench_rust_sys_alloc.exe 
 
+# Unfinished:
+# treebench_rust_packed.exe
 
 # Match whichever version the docker image is using:
 RESOLVER=lts-6.23
@@ -51,6 +58,8 @@ treebench_ghc_strict.exe: treebench.hs
 treebench_ghc_lazy.exe: treebench_lazy.hs
 	time $(GHC) -O2 -rtsopts $^ -o $@
 
+treebench_ghc_packed.exe: treebench_packed.hs
+	time $(GHC) -O2 -rtsopts $^ -o $@
 
 treebench_ocaml.exe: treebench.ml
 	time ocamlopt.opt $^ -o $@
@@ -60,6 +69,9 @@ treebench_rust.exe: treebench.rs
 
 treebench_rust_sys_alloc.exe: treebench_sys_alloc.rs
 	time rustc $^ -o $@ -O
+
+# treebench_rust_packed.exe: treebench_packed.rs
+# 	time rustc $^ -o $@ -O
 
 treebench_c.exe: treebench.c
 	time $(CC) $(COPTS) $^ -o $@
@@ -74,8 +86,65 @@ treebench_c_bumpalloc.exe: treebench.c
 treebench_c_bumpalloc_unaligned.exe: treebench.c
 	time $(CC) $(COPTS) -DBUMPALLOC -DUNALIGNED $^ -o $@ 
 
+HEADERS=include/main_fragment_packed.h
+
+treebench_c_packed.exe: treebench_packed.c $(HEADERS)
+	time $(CC) $(COPTS) treebench_packed.c -o $@ 
+
+treebench_c_packed_loop.exe: treebench_packed_loop.c $(HEADERS)
+	time $(CC) $(COPTS) treebench_packed_loop.c -o $@ 
+
+treebench_c_packed_structs.exe: treebench_packed_structs.c $(HEADERS)
+	time $(CC) $(COPTS) treebench_packed_structs.c -o $@ 
+
+treebench_c_packed_parallel.exe: treebench_packed_parallel.c
+	time $(CPP) -DPARALLEL -fpermissive -fcilkplus $(CPPOPTS) $^ -o $@ 
+
+treebench_c_packed_parallel2.exe: treebench_packed_parallel2.c
+	time $(CC) -DPARALLEL -fcilkplus $(COPTS) $^ -o $@
+
+treebench_c_packed_parallel3.exe: treebench_packed_parallel3.c $(HEADERS)
+	time $(CC) -DPARALLEL -fcilkplus $(COPTS) treebench_packed_parallel3.c -o $@ 
+
 treebench.class: treebench.java
 	time javac $^ 
+
+
+# BuildTree benchmark
+# ==============================================================================
+
+TREELANGDIR=$(shell cd ..; pwd)
+TREEC=$(shell cd ../TreeLang; stack exec -- which treec)
+
+# Make sure the compiler is build and not stale:
+stack_build:
+	cd $(TREELANGDIR)/TreeLang; stack build
+
+buildtree: stack_build buildtree_treelang_c_packed.exe
+	raco make buildtree_treelang.sexp
+# buildtree_treelang_c_pointer.exe
+
+# Here we control the C file output in case we build in parallel:
+buildtree_treelang_c_packed.exe: buildtree_treelang.sexp
+	$(TREEC)  --packed --cfile=$(@:.exe=.c) --exefile $@ $^
+
+buildtree_treelang_c_pointer.exe: buildtree_treelang.sexp
+	$(TREEC)  --pointer --cfile=$(@:.exe=.c) --exefile $@ $^
+
+# SumTree benchmark
+# ==============================================================================
+# Identical to buildtree.  s/buildtree/sumtree/
+
+# --pointer not working yet:
+sumtree: stack_build sumtree_treelang_c_packed.exe
+	raco make sumtree_treelang.sexp
+
+sumtree_treelang_c_packed.exe: sumtree_treelang.sexp
+	$(TREEC)  --packed --cfile=$(@:.exe=.c) --exefile $@ $^
+
+sumtree_treelang_c_pointer.exe: sumtree_treelang.sexp
+	$(TREEC)  --pointer --cfile=$(@:.exe=.c) --exefile $@ $^
+
 
 
 
@@ -107,7 +176,10 @@ run_core: c ghc
 	./treebench_ghc_strict.exe  seq $(DEPTH) $(DEFAULT_ITERS)
 	./treebench_ghc_lazy.exe    $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
 	./treebench_c.exe           $(MODE) $(DEPTH) $(DEFAULT_ITERS)
+	./treebench_c_packed.exe    $(DEPTH) $(DEFAULT_ITERS)
+	./treebench_c_packed_loop.exe $(DEPTH) $(DEFAULT_ITERS)
 	$(MAKE) run_racket
+	$(MAKE) run_racket_packed
 
 #	./treebench_rust_sys_alloc.exe $(DEPTH) 
 
@@ -116,6 +188,9 @@ run_chez:
 
 run_racket:
 	racket treebench.rkt $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+
+run_racket_packed:
+	racket treebench_packed.rkt $(DEPTH)
 
 run_java: treebench.class
 	java treebench $(DEFAULT_PASS) $(DEPTH) 33

@@ -18,6 +18,14 @@
 
 (define PASSNAME "treebench")
 
+;; variant is lang like treelang-racket
+#|
+treelang-c-packed - C backend for treelang, packed representation
+treelang-racket - treelang executed through Sarah's racket embedding
+treelang-c-pointer - we wont get to it for this paper, but the compiler-generated pointer-chasing code
+handwritten-c-pointer
+handwritten-c-packed
+|#
 
 (define (launch-benchmarks [exec : String] [pass-name : String] [variant : String])  
   (define outfile (format "results_~a_~a.csv" variant (current-seconds)))

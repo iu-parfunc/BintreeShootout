@@ -8,6 +8,8 @@
 
 (define PASSNAME "buildtree")
 
+;;(launch-benchmarks "./buildtree_treelang_c_packed.exe -benchmark " PASSNAME "treelang-c-packed")
+
 ;;(launch-benchmarks "racket buildtree_treelang.sexp " PASSNAME "treelang-racket")
 
 ;; NEW
@@ -23,6 +25,8 @@
 (launch-benchmarks "./treebench_rust.exe build " PASSNAME "handwritten-rust")
 
 (launch-benchmarks "./treebench_ocaml.exe build " PASSNAME "handwritten-ocaml")
+
+(launch-benchmarks "./treebench_c_packed.exe build " PASSNAME "handwritten-c-packed")
 
 (launch-benchmarks "./treebench_c.exe build " PASSNAME "handwritten-c")
 

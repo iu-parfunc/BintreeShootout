@@ -8,6 +8,8 @@
 
 (define PASSNAME "sumtree")
 
+;;(launch-benchmarks "./sumtree_treelang_c_packed.exe -benchmark " PASSNAME "treelang-c-packed")
+
 ;;(launch-benchmarks "racket sumtree_treelang.sexp " PASSNAME "treelang-racket")
 
 (launch-benchmarks "racket treebench.rkt sum " PASSNAME "handwritten-racket")

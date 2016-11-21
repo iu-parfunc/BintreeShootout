@@ -1,6 +1,6 @@
 type tree =
   | Leaf of int
-  | Node of tree * tree
+  | Node of (tree * tree)
 
 let build_tree (n : int) : tree =
   let rec go root n =

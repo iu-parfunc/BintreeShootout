@@ -14,6 +14,14 @@
 
 ;;(launch-benchmarks "./treebench_c.exe" PASSNAME "handwritten-c-pointer")
 
+;;(launch-benchmarks "./treebench_c_packed.exe" PASSNAME "handwritten-c-packed")
+
+;;(launch-benchmarks "./treebench_c_packed_loop.exe" PASSNAME ...)
+
+;;(launch-benchmarks "./treebench_c_packed_parallel3.exe" PASSNAME ...)
+
+;;(launch-benchmarks "./treebench_c_packed_structs.exe" PASSNAME ...)
+
 ;;(launch-benchmarks "./treebench_c_parallel.exe" PASSNAME ...)
 
 ;; add more here
