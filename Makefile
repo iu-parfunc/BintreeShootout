@@ -42,18 +42,23 @@ endif
 
 ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe
 
-treebench_mlton.exe: treebench.sml
-	time mlton -output $@ $^
-
 treebench_ghc_strict.exe: treebench.hs
 	time $(GHC) -O2 -rtsopts $^ -o $@
 
 treebench_ghc_lazy.exe: treebench_lazy.hs
 	time $(GHC) -O2 -rtsopts $^ -o $@
 
+mlton: treebench_mlton.exe
+treebench_mlton.exe: treebench.sml
+	time mlton -output $@ $^
 
+ocaml: treebench_ocaml.exe
 treebench_ocaml.exe: treebench.ml
 	time ocamlopt.opt $^ -o $@
+
+fsharp: treebench_fsharp.exe
+treebench_fsharp.exe: treebench.fs
+	time fsharpc --mlcompatibility $^ -o $@
 
 treebench_rust.exe: treebench.rs
 	time rustc $^ -o $@ -O
@@ -145,4 +150,4 @@ docker:
 clean:
 	rm -f *.exe *.o *.hi treebench treebench_lazy *.cmi *.cmo *.cmx
 
-.PHONY: all clean ghc run_chez run_java run_all run_small c ghc buildtree stack_build
+.PHONY: all clean ghc run_chez run_java run_all run_small c ghc buildtree stack_build ocaml mlton fsharp
