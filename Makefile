@@ -5,7 +5,8 @@
 all: treebench_mlton.exe treebench_ocaml.exe \
      treebench_rust.exe treebench.class c ghc
 
-c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe treebench_c_parallel.exe \
+c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe \
+   treebench_c_parallel.exe treebench_c_bumpalloc_parallel.exe \
    treebench_c_packed.exe treebench_c_packed_loop.exe treebench_c_packed_structs.exe treebench_c_packed_parallel3.exe
 
 # These are unfinished, or behaving badly:
@@ -27,16 +28,17 @@ RESOLVER=lts-6.23
 
 GHC = stack --install-ghc --resolver=$(RESOLVER) exec ghc -- -rtsopts -threaded
 
-CC = gcc
-# CC = clang
+CC ?= gcc
+# clang icc
 
-# CPP = icpc
-CPP = g++
-# CPP = clang++
+# CPP ?= g++
+# clang++ icpc
 
 # time.h is missing features in c11/c++11:
 CPPOPTS = -std=gnu++11 -lrt
 COPTS   = -std=gnu11   -lrt
+
+PAROPTS = -DPARALLEL -fcilkplus -lcilkrts
 
 ifeq ($(DEBUG),)
   CPPOPTS += -O3 
@@ -49,9 +51,6 @@ endif
 
 ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe
 
-treebench_mlton.exe: treebench.sml
-	time mlton -output $@ $^
-
 treebench_ghc_strict.exe: treebench.hs
 	time $(GHC) -O2 -rtsopts $^ -o $@
 
@@ -61,8 +60,17 @@ treebench_ghc_lazy.exe: treebench_lazy.hs
 treebench_ghc_packed.exe: treebench_packed.hs
 	time $(GHC) -O2 -rtsopts $^ -o $@
 
+mlton: treebench_mlton.exe
+treebench_mlton.exe: treebench.sml
+	time mlton -output $@ $^
+
+ocaml: treebench_ocaml.exe
 treebench_ocaml.exe: treebench.ml
 	time ocamlopt.opt $^ -o $@
+
+fsharp: treebench_fsharp.exe
+treebench_fsharp.exe: treebench.fs
+	time fsharpc --mlcompatibility $^ -o $@
 
 treebench_rust.exe: treebench.rs
 	time rustc $^ -o $@ -O
@@ -77,10 +85,13 @@ treebench_c.exe: treebench.c
 	time $(CC) $(COPTS) $^ -o $@
 
 treebench_c_parallel.exe: treebench.c
-	time $(CC) -DPARALLEL -fcilkplus $(COPTS) $^ -o $@ 
+	time $(CC) $(PAROPTS) $(COPTS) $^ -o $@ 
 
 treebench_c_bumpalloc.exe: treebench.c
 	time $(CC) $(COPTS) -DBUMPALLOC $^ -o $@ 
+
+treebench_c_bumpalloc_parallel.exe: treebench.c
+	time $(CC) $(PAROPTS) $(COPTS) -DBUMPALLOC $^ -o $@ 
 
 # this version uses 1 byte for tags
 treebench_c_bumpalloc_unaligned.exe: treebench.c
@@ -195,10 +206,29 @@ run_racket_packed:
 run_java: treebench.class
 	java treebench $(DEFAULT_PASS) $(DEPTH) 33
 
+# Example of how to run with Jemalloc.
+# Jemalloc significantly DECREASES throughput, and then does not SCALE WELL:
+# For example, on swarm, 2^20 gets 1.63X speedup from 646ms to 396ms, 1 to 18 cores.
+# (This is with jemalloc version 3.5.1-2 on ubntu 14.04.)
+#
+# For comparison, it takes 67ms with the builtin malloc implemntation
+# on 1 thread on the same machine.  Adding Cilk with 5 layers of
+# parallel recursion actually slows it down to 84ms somehow on 1 core.
+# That's the best time.  The time on >1 core is worse.  (Well, it does
+# narrowly catch back up at 12 cores.)
+run_jemalloc:
+# I see a 
+	time CILK_NWORKERS=8 LD_PRELOAD=libjemalloc.so  ./treebench_c_parallel.exe add1 20 10
+# One especially weird thing is that the SEQUENTIAL version shows a
+# slowdown with scaling Cilk workers:
+#	time CILK_NWORKERS=8 LD_PRELOAD=libjemalloc.so  ./treebench_c.exe add1 20 10
+
+# ================================================================================
+
 docker:
 	docker build -t bintree-bench .
 
 clean:
 	rm -f *.exe *.o *.hi treebench treebench_lazy *.cmi *.cmo *.cmx
 
-.PHONY: all clean ghc run_chez run_java run_all run_small c ghc buildtree stack_build
+.PHONY: all clean ghc run_chez run_java run_all run_small c ghc buildtree stack_build ocaml mlton fsharp

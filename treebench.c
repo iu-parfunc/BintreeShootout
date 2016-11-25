@@ -16,7 +16,9 @@
 
 // Manual layout:
 // one byte for each tag, 64 bit integers
-typedef int64_t Num;
+typedef long long int Num;
+// typedef int64_t Num;
+
 
 // This controls whether we use a word for tags:
 #ifdef UNALIGNED
@@ -29,6 +31,8 @@ typedef int64_t Num;
 enum Mode { Build, Sum, Add1 };
 
 enum ATTR Type { Leaf, Node };
+
+static int num_par_levels = 5;
 
 // struct Tree;
 
@@ -54,9 +58,17 @@ void deleteTree(Tree* t) {
 
 #ifdef BUMPALLOC
 #warning "Using bump allocator."
-char* heap_ptr = 0;
+// Here we use one heap_ptr per thread:
+#ifdef PARALLEL
+// This doesn't seem to make a noticible difference in performance.  But just
+// to be careful, we disable it when compiling in single-threaded mode.
+__thread char* heap_ptr = (char*)0;
+#else
+char* heap_ptr = (char*)0;
+#endif
+  
 // For simplicity just use a single large slab:
-#define INITALLOC heap_ptr = malloc(500 * 1000 * 1000);
+#define INITALLOC { if (! heap_ptr) { heap_ptr = malloc(500 * 1000 * 1000); } }
 #define ALLOC(n) (heap_ptr += n)
 // HACK, delete by rewinding:
 #define DELTREE(p) { heap_ptr = (char*)p; }
@@ -65,6 +77,9 @@ char* heap_ptr = 0;
 #define ALLOC malloc
 #define DELTREE deleteTree
 #endif
+
+// For parallel execution:
+int num_workers = 0;
 
 //--------------------------------------------------------------------------------
 
@@ -106,7 +121,8 @@ Tree* buildTree(int n) {
 
 void printTree(Tree* t) {
   if (t->tag == Leaf) {
-    printf("%" PRId64, t->elem);
+    // printf("%" PRId64, t->elem);
+    printf("%lld", t->elem);
     return;
   } else {
     printf("(");
@@ -142,6 +158,7 @@ Num sumTree(Tree* t) {
 
 
 #ifdef PARALLEL
+// Takes the number of parallel levels as argument:
 Tree* add1TreePar(Tree* t, int n) {
   if (n == 0) return add1Tree(t);
 
@@ -188,7 +205,7 @@ void bench_single_pass(Tree* tr, int iters)
     {
         clock_gettime(which_clock, &begin);
 #ifdef PARALLEL
-        Tree* t2 = add1TreePar(tr, 5);
+        Tree* t2 = add1TreePar(tr, num_par_levels);
 #else
         Tree* t2 = add1Tree(tr);
 #endif
@@ -236,7 +253,8 @@ void bench_add1_batch(Tree* tr, int iters)
     }
     clock_gettime(which_clock, &end);
 #ifdef BUMPALLOC
-    printf("Bytes allocated during whole batch:\n");
+    // TODO: Do some more work to tally bytes alloc on all threads:
+    printf("Bytes allocated (on this thread) during whole batch:\n");
     printf("BYTESALLOC: %ld\n", allocated_bytes);
 #else
     malloc_stats();
@@ -328,7 +346,7 @@ int main(int argc, char** argv)
     iters = atoi(argv[3]);
 
     printf("Benchmarking in mode: %s\n", modestr);
-
+    
     if (!strcmp(modestr, "sum"))   mode = Sum; 
     else if (!strcmp(modestr, "build")) mode = Build;
     else if (!strcmp(modestr, "add1"))  mode = Add1;
@@ -338,8 +356,29 @@ int main(int argc, char** argv)
     printf("sizeof(Tree) = %lu\n", sizeof(Tree));
     printf("sizeof(enum Type) = %lu\n", sizeof(enum Type));
     printf("Building tree, depth %d.  Benchmarking %d iters.\n", depth, iters);
+#ifdef PARALLEL
+    num_workers = __cilkrts_get_nworkers();
+    printf("Number of parallel threads: %d\n", num_workers);
+    printf("Depth of parallel recursions: %d\n", num_par_levels);
 
+#ifdef BUMPALLOC    
+    char** heap_addrs = calloc(num_workers, sizeof(char*));
+    // HACK to execute on every cilk worker:
+    cilk_for(int i=0; i < 100000000; i++) {
+      INITALLOC;
+      heap_addrs[__cilkrts_get_worker_number()] = & heap_ptr;
+    }
+    printf("   ");
+    for(int i=0; i<num_workers; i++)
+      printf("%p ", heap_addrs[i]);
+    printf("\n  diffs: ");
+    for(int i=1; i<num_workers; i++)
+      printf("%ld ", heap_addrs[i] - heap_addrs[i-1]);
+    printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
+#endif    
+#else
     INITALLOC;
+#endif
     struct timespec begin, end;
     clock_gettime(which_clock, &begin);
     Tree* tr = buildTree(depth);
