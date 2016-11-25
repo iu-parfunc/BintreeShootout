@@ -30,6 +30,8 @@ enum Mode { Build, Sum, Add1 };
 
 enum ATTR Type { Leaf, Node };
 
+static int num_par_levels = 5;
+
 // struct Tree;
 
 typedef struct ATTR Tree {
@@ -142,6 +144,7 @@ Num sumTree(Tree* t) {
 
 
 #ifdef PARALLEL
+// Takes the number of parallel levels as argument:
 Tree* add1TreePar(Tree* t, int n) {
   if (n == 0) return add1Tree(t);
 
@@ -188,7 +191,7 @@ void bench_single_pass(Tree* tr, int iters)
     {
         clock_gettime(which_clock, &begin);
 #ifdef PARALLEL
-        Tree* t2 = add1TreePar(tr, 5);
+        Tree* t2 = add1TreePar(tr, num_par_levels);
 #else
         Tree* t2 = add1Tree(tr);
 #endif
@@ -329,6 +332,11 @@ int main(int argc, char** argv)
 
     printf("Benchmarking in mode: %s\n", modestr);
 
+#ifdef PARALLEL
+    printf("Number of parallel threads: %d\n", __cilkrts_get_nworkers());
+    printf("Number of parallel recursions: %d\n", num_par_levels);    
+#endif
+    
     if (!strcmp(modestr, "sum"))   mode = Sum; 
     else if (!strcmp(modestr, "build")) mode = Build;
     else if (!strcmp(modestr, "add1"))  mode = Add1;

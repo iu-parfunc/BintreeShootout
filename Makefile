@@ -120,6 +120,25 @@ run_racket:
 run_java: treebench.class
 	java treebench $(DEFAULT_PASS) $(DEPTH) 33
 
+# Example of how to run with Jemalloc.
+# Jemalloc significantly DECREASES throughput, and then does not SCALE WELL:
+# For example, on swarm, 2^20 gets 1.63X speedup from 646ms to 396ms, 1 to 18 cores.
+# (This is with jemalloc version 3.5.1-2 on ubntu 14.04.)
+#
+# For comparison, it takes 67ms with the builtin malloc implemntation
+# on 1 thread on the same machine.  Adding Cilk with 5 layers of
+# parallel recursion actually slows it down to 84ms somehow on 1 core.
+# That's the best time.  The time on >1 core is worse.  (Well, it does
+# narrowly catch back up at 12 cores.)
+run_jemalloc:
+# I see a 
+	time CILK_NWORKERS=8 LD_PRELOAD=libjemalloc.so  ./treebench_c_parallel.exe add1 20 10
+# One especially weird thing is that the SEQUENTIAL version shows a
+# slowdown with scaling Cilk workers:
+#	time CILK_NWORKERS=8 LD_PRELOAD=libjemalloc.so  ./treebench_c.exe add1 20 10
+
+# ================================================================================
+
 docker:
 	docker build -t bintree-bench .
 
