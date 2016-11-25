@@ -16,7 +16,9 @@
 
 // Manual layout:
 // one byte for each tag, 64 bit integers
-typedef int64_t Num;
+typedef long long int Num;
+// typedef int64_t Num;
+
 
 // This controls whether we use a word for tags:
 #ifdef UNALIGNED
@@ -108,7 +110,8 @@ Tree* buildTree(int n) {
 
 void printTree(Tree* t) {
   if (t->tag == Leaf) {
-    printf("%" PRId64, t->elem);
+    // printf("%" PRId64, t->elem);
+    printf("%lld", t->elem);
     return;
   } else {
     printf("(");
@@ -333,8 +336,8 @@ int main(int argc, char** argv)
     printf("Benchmarking in mode: %s\n", modestr);
 
 #ifdef PARALLEL
-    printf("Number of parallel threads: %d\n", __cilkrts_get_nworkers());
-    printf("Number of parallel recursions: %d\n", num_par_levels);    
+    printf("Number of parallel threads: %d\n", __cilkrts_get_nworkers());    
+    printf("Number of parallel recursions: %d\n", num_par_levels);
 #endif
     
     if (!strcmp(modestr, "sum"))   mode = Sum; 
