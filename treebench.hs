@@ -68,13 +68,19 @@ main =
                                  "  Expected <mode>=par|seq <depth> <iters> got: " ++
                                  show args
     tr0  <- buildTree power
+    t1   <- getCurrentTime
     times <- forM [1 .. iters :: Int] $ \ix -> do      
-      (st,en,tr') <- case mode of
-                     "par" -> timeit (benchPar ix tr0)
-                     "seq" -> timeit (bench    ix tr0)
+      tr' <- case mode of
+               "par" -> (benchPar ix tr0)
+               "seq" -> (bench    ix tr0)
       putStr "."
-      evaluate (leftmost tr')
-      return (diffUTCTime en st)
-    let sorted = sort times
-    putStrLn $ "\nAll times: " ++ show sorted
-    putStrLn $ "MEDIANTIME: "++ show (sorted !! (iters `quot` 2))
+      return tr'
+      --evaluate (leftmost tr')
+      -- return (diffUTCTime en st)
+    t2 <- getCurrentTime
+    --let sorted = sort times
+    let diffT = diffUTCTime t2 t1
+    putStrLn $ ""
+    putStrLn $ " BATCHTIME: " ++ show (fromRational (toRational diffT) :: Double)
+    --putStrLn $ "\nAll times: " ++ show sorted
+    --putStrLn $ "MEDIANTIME: "++ show (sorted !! (iters `quot` 2))
