@@ -45,10 +45,10 @@ endif
 ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe
 
 treebench_ghc_strict.exe: treebench.hs
-	time $(GHC) -O2 -rtsopts $^ -o $@
+	time $(GHC) -odir ghc_strict/ -O2 -rtsopts $^ -o $@
 
 treebench_ghc_lazy.exe: treebench_lazy.hs
-	time $(GHC) -O2 -rtsopts $^ -o $@
+	time $(GHC) -odir ghc_lazy/ -O2 -rtsopts $^ -o $@
 
 mlton: treebench_mlton.exe
 treebench_mlton.exe: treebench.sml
