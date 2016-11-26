@@ -5,7 +5,9 @@
 	 racket/string
      racket/port)
 
-(provide driver)
+(provide driver
+         parallel-driver ;; c-parallel-driver
+         ghc-parallel-driver)
 
 (define target-time 1.0)
 (define ARGMAX 25)
@@ -29,9 +31,9 @@
         (let ([strs (string-split (cast line String))])
           (match strs
             [`("BATCHTIME:" ,t)
-             (begin (displayln t)
+             (begin (displayln "BATCHTIME") (displayln t)
              (cast (string->number t) Real))]
-            [_ 
+            [_ ;;(begin (displayln strs) 
              (read-batchtime port err-port cmd get-exit-code)])))))
 
 ;; port that proccess wrote to
@@ -90,6 +92,89 @@
 	    ;; write to csv
 	    (fprintf csv-port "~a, ~a, ~a, ~a, ~a\n"
 	  	     pass-name variant args iters meantime)
+	    (flush-output csv-port)
+	    )
+	  (begin (printf "~a " batchseconds) (flush-output)
+	         (loop (* 2 iters)))))
+  ))
+
+(define (parallel-driver [csv-port : Output-Port] [exec : String] [pass-name : String]
+                         [variant : String] [threads : Integer])
+  (fprintf csv-port "NAME, VARIANT, ARGS, ITERS, MEANTIME, THREADS\n") ;; start csv file
+  
+  ;; loop through args 1 to 25
+  (for ([args (in-range 1 (+ 1 ARGMAX))])
+    (printf "ARGS: ~a\n" args)
+    (printf "running process ~a\n" exec)
+    (let loop ([iters 1])
+      (printf "iters ~a\n" iters)
+      (define cmd (format "export CILK_NWORKERS=~a; ~a ~a ~a" threads exec args iters))
+      (define ls (process cmd))
+      (define block_func (get-proc ls))
+;;      (block_func 'wait)
+      (define op (get-input-port ls))
+      (define err (get-error-port ls))
+
+      (define batchseconds
+        (read-batchtime op err cmd (lambda () (block_func 'exit-code))))
+      (block_func 'wait)
+      (close-input-port op)
+      (close-output-port (get-output-port ls))
+      (close-input-port (get-error-port ls))
+
+
+      (if (>= batchseconds target-time)
+          (let ([meantime (exact->inexact (/ batchseconds iters))])
+	    (printf "\nITERS: ~a\n" iters)
+            (printf "BATCHTIME: ~a\n" (exact->inexact batchseconds))
+            (printf "MEANTIME: ~a\n" meantime)
+            (printf "Done with pass, ~a.\n" pass-name)
+
+	    ;; write to csv
+	    (fprintf csv-port "~a, ~a, ~a, ~a, ~a, ~a\n"
+	  	     pass-name variant args iters meantime threads)
+	    (flush-output csv-port)
+	    )
+	  (begin (printf "~a " batchseconds) (flush-output)
+	         (loop (* 2 iters)))))
+  ))
+
+(define (ghc-parallel-driver [csv-port : Output-Port] [exec : String] [pass-name : String]
+                             [variant : String] [threads : Integer])
+  (fprintf csv-port "NAME, VARIANT, ARGS, ITERS, MEANTIME, THREADS\n") ;; start csv file
+  
+  ;; loop through args 1 to 25
+  (for ([args (in-range 1 (+ 1 ARGMAX))])
+    (printf "ARGS: ~a\n" args)
+    (printf "running process ~a\n" exec)
+    (let loop ([iters 1])
+      (printf "iters ~a\n" iters)
+      (define cmd (format "~a ~a ~a +RTS -N~a" exec args iters threads))
+      (printf "~a\n" cmd)
+      (define ls (process cmd))
+      (define block_func (get-proc ls))
+;;      (block_func 'wait)
+      (define op (get-input-port ls))
+      (define err (get-error-port ls))
+
+      (define batchseconds
+        (read-batchtime op err cmd (lambda () (block_func 'exit-code))))
+      (block_func 'wait)
+      (close-input-port op)
+      (close-output-port (get-output-port ls))
+      (close-input-port (get-error-port ls))
+
+
+      (if (>= batchseconds target-time)
+          (let ([meantime (exact->inexact (/ batchseconds iters))])
+	    (printf "\nITERS: ~a\n" iters)
+            (printf "BATCHTIME: ~a\n" (exact->inexact batchseconds))
+            (printf "MEANTIME: ~a\n" meantime)
+            (printf "Done with pass, ~a.\n" pass-name)
+
+	    ;; write to csv
+	    (fprintf csv-port "~a, ~a, ~a, ~a, ~a, ~a\n"
+	  	     pass-name variant args iters meantime threads)
 	    (flush-output csv-port)
 	    )
 	  (begin (printf "~a " batchseconds) (flush-output)
