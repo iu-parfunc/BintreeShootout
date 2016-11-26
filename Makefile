@@ -52,10 +52,10 @@ endif
 ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe
 
 treebench_ghc_strict.exe: treebench.hs
-	time $(GHC) -O2 -rtsopts $^ -o $@
+	time $(GHC) -odir ghc_strict/ -O2 -rtsopts $^ -o $@
 
 treebench_ghc_lazy.exe: treebench_lazy.hs
-	time $(GHC) -O2 -rtsopts $^ -o $@
+	time $(GHC) -odir ghc_lazy/ -O2 -rtsopts $^ -o $@
 
 treebench_ghc_packed.exe: treebench_packed.hs
 	time $(GHC) -O2 -rtsopts $^ -o $@
