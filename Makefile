@@ -32,14 +32,14 @@ CXX ?= g++
 CPPOPTS = -std=gnu++11 -lrt
 COPTS   = -std=gnu11   -lrt
 
-PAROPTS = -DPARALLEL -fcilkplus -lcilkrts
+PAROPTS = -DPARALLEL 
 
 ifeq ($(DEBUG),)
   CPPOPTS += -O3 
   COPTS += -O3 
 else
-  CPPOPTS += -O0 -g 
-  COPTS += -O0 -g
+  CPPOPTS += -O0 -g -DDEBUG
+  COPTS += -O0 -g -DDEBUG
 endif
 
 
@@ -74,10 +74,10 @@ treebench_c.exe: treebench.c
 
 
 treebench_c_cilk.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) $^ -o $@ 
+	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts $^ -o $@ 
 
 treebench_c_bumpalloc_cilk.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) -DBUMPALLOC $^ -o $@ 
+	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts -DBUMPALLOC $^ -o $@ 
 
 treebench_c_tbb.exe: treebench.c
 	time $(CXX) $(PAROPTS) $(CPPOPTS) -DTBB_PARALLEL $^ -o $@ -ltbb

@@ -87,7 +87,18 @@ const size_t default_arena_size = 4000000000; // 4GB
   
 // For simplicity just use a single large slab:
 #define INITALLOC { if (! heap_ptr) { heap_ptr = (char*)malloc(default_arena_size); } }
-#define ALLOC(n) (heap_ptr += n)
+
+#ifdef DEBUG
+  char* my_abort() {
+    fprintf(stderr, "Error: this thread's heap was not initalized.\n");
+    abort();
+    return NULL;
+  }
+  #define ALLOC(n) (heap_ptr ? heap_ptr += n : my_abort())
+#else
+  #define ALLOC(n) (heap_ptr += n)
+#endif
+
 // HACK, delete by rewinding:
 #define DELTREE(p) { heap_ptr = (char*)p; }
 #else
