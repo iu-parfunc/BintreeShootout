@@ -156,7 +156,7 @@
       (if (>= batchseconds target-time)
           (let ([meantime (exact->inexact (/ batchseconds iters))])
             (printf "ARGS: ~a\n" args)
-	    (printf "\nITERS: ~a\n" iters)
+	    (printf "ITERS: ~a\n" iters)
             (printf "BATCHTIME: ~a\n" (exact->inexact batchseconds))
             (printf "MEANTIME: ~a\n" meantime)
             (printf "Done with pass, ~a.\n" pass-name)

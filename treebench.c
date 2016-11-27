@@ -6,13 +6,27 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef PARALLEL
-#include <cilk/cilk.h>
-#endif
+
 #include <inttypes.h>
 #include <malloc.h>
 #include <stdint.h>
 #include <time.h>
+
+#ifdef PARALLEL
+ #ifdef TBB_PARALLEL
+  #include <tbb/task.h>
+  #include <tbb/task_group.h>
+  #include <tbb/task_scheduler_init.h>
+  #include <tbb/parallel_for.h>
+  #include <tbb/blocked_range.h>
+  using namespace tbb;
+  //  typedef tbb::enumerable_thread_specific< char* > TLSCharPtr;
+  //  TLSCharPtr heap_addrs ( (char*)NULL );
+ #else
+  #include <cilk/cilk.h>
+ #endif
+#endif
+
 
 // Manual layout:
 // one byte for each tag, 64 bit integers
@@ -62,16 +76,17 @@ const size_t default_arena_size = 4000000000; // 4GB
 #ifdef BUMPALLOC
 #warning "Using bump allocator."
 // Here we use one heap_ptr per thread:
-#ifdef PARALLEL
-// This doesn't seem to make a noticible difference in performance.  But just
-// to be careful, we disable it when compiling in single-threaded mode.
-__thread char* heap_ptr = (char*)0;
-#else
-char* heap_ptr = (char*)0;
-#endif
+
+ #ifdef PARALLEL
+ // This doesn't seem to make a noticible difference in performance.  But just
+ // to be careful, we disable it when compiling in single-threaded mode.
+ __thread char* heap_ptr = (char*)0;
+ #else
+ char* heap_ptr = (char*)0;
+ #endif
   
 // For simplicity just use a single large slab:
-#define INITALLOC { if (! heap_ptr) { heap_ptr = malloc(default_arena_size); } }
+#define INITALLOC { if (! heap_ptr) { heap_ptr = (char*)malloc(default_arena_size); } }
 #define ALLOC(n) (heap_ptr += n)
 // HACK, delete by rewinding:
 #define DELTREE(p) { heap_ptr = (char*)p; }
@@ -161,6 +176,7 @@ Num sumTree(Tree* t) {
 
 
 #ifdef PARALLEL
+
 // Takes the number of parallel levels as argument:
 Tree* add1TreePar(Tree* t, int n) {
   if (n == 0) return add1Tree(t);
@@ -170,12 +186,20 @@ Tree* add1TreePar(Tree* t, int n) {
   if (t->tag == Leaf) {
     tout->elem = t->elem + 1;
   } else {
-    tout->l = cilk_spawn add1TreePar(t->l, n-1);
-    tout->r = add1TreePar(t->r, n-1);
+    #ifdef TBB_PARALLEL
+      tbb::task_group g;
+      g.run([&]{ tout->l = add1TreePar(t->l, n-1); });
+      g.run([&]{ tout->r = add1TreePar(t->r, n-1); });
+      g.wait();
+    #else 
+      tout->l = cilk_spawn add1TreePar(t->l, n-1);
+      tout->r = add1TreePar(t->r, n-1);
+      cilk_sync;
+    #endif
   }
-  cilk_sync;
   return tout;
 }
+
 #endif
 
 int compare_doubles (const void *a, const void *b)
@@ -245,7 +269,7 @@ void bench_add1_batch(Tree* tr, int iters)
     for (int i=0; i<iters; i++)
     {
 #ifdef PARALLEL
-        Tree* t2 = add1TreePar(tr, 5);
+        Tree* t2 = add1TreePar(tr, par_depth);
 #else
         Tree* t2 = add1Tree(tr);
 #endif
@@ -360,18 +384,40 @@ int main(int argc, char** argv)
     printf("sizeof(enum Type) = %lu\n", sizeof(enum Type));
     printf("Building tree, depth %d.  Benchmarking %d iters.\n", depth, iters);
 #ifdef PARALLEL
-    num_workers = __cilkrts_get_nworkers();
-    printf("Number of parallel threads: %d\n", num_workers);
     printf("Depth of parallel recursions: %d\n", par_depth);
 
-#ifdef BUMPALLOC
+  #ifdef TBB_PARALLEL
+    num_workers = tbb::task_scheduler_init::default_num_threads();
+    // char *str = getenv("TBB_NUM_THREADS");
+    char *str = getenv("CILK_NWORKERS");  // Temp, hack
+    if (str != NULL) num_workers = atoi(str);
+
+    tbb::task_scheduler_init init(num_workers);
+  #else    
+    num_workers = __cilkrts_get_nworkers();
+  #endif
+    printf("Number of parallel threads: %d\n", num_workers);
+    
+  #ifdef BUMPALLOC
     printf("Arena size for bump alloc: %lld\n", default_arena_size);
-    char** heap_addrs = calloc(num_workers, sizeof(char*));
-    // HACK to execute on every cilk worker:
-    cilk_for(int i=0; i < 100000000; i++) {
-      INITALLOC;
-      heap_addrs[__cilkrts_get_worker_number()] = heap_ptr;
-    }
+    char** heap_addrs = (char**)calloc(num_workers, sizeof(char*));
+
+    int dummy_iters = 100000000;
+    #ifdef TBB_PARALLEL
+       parallel_for( blocked_range<size_t>(0,100000000),
+                    [=](const blocked_range<size_t>& r) {
+                      for(size_t i=r.begin(); i!=r.end(); ++i) 
+                        INITALLOC;
+                        // heap_addrs[TBB_GET_WORKER] = heap_ptr;
+                    });
+    #else
+      // HACK to execute on every Cilk/TBB worker:
+      cilk_for(int i=0; i < dummy_iters; i++) {
+        INITALLOC;
+        heap_addrs[__cilkrts_get_worker_number()] = heap_ptr;
+      }
+    #endif
+    
     printf("   ");
     for(int i=0; i<num_workers; i++)
       printf("%p ", heap_addrs[i]);
@@ -380,7 +426,7 @@ int main(int argc, char** argv)
       printf("%lld ", ((long long int)heap_addrs[i]) -
                      ((long long int)heap_addrs[i-1]));
     printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
-#endif    
+  #endif
 #else
     INITALLOC;
 #endif

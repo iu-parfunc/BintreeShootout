@@ -6,7 +6,8 @@ all: treebench_mlton.exe treebench_ocaml.exe \
      treebench_rust.exe treebench.class c ghc
 
 c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe \
-   treebench_c_parallel.exe treebench_c_bumpalloc_parallel.exe
+   treebench_c_cilk.exe treebench_c_bumpalloc_cilk.exe \
+   treebench_c_tbb.exe  treebench_c_bumpalloc_tbb.exe
 
 ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe 
 
@@ -24,7 +25,7 @@ GHC = stack --install-ghc --resolver=$(RESOLVER) exec ghc -- -rtsopts -threaded
 CC ?= gcc
 # clang icc
 
-# CPP ?= g++
+CXX ?= g++
 # clang++ icpc
 
 # time.h is missing features in c11/c++11:
@@ -71,14 +72,22 @@ treebench_rust_sys_alloc.exe: treebench_sys_alloc.rs
 treebench_c.exe: treebench.c
 	time $(CC) $(COPTS) $^ -o $@
 
-treebench_c_parallel.exe: treebench.c
+
+treebench_c_cilk.exe: treebench.c
 	time $(CC) $(PAROPTS) $(COPTS) $^ -o $@ 
+
+treebench_c_bumpalloc_cilk.exe: treebench.c
+	time $(CC) $(PAROPTS) $(COPTS) -DBUMPALLOC $^ -o $@ 
+
+treebench_c_tbb.exe: treebench.c
+	time $(CXX) $(PAROPTS) $(CPPOPTS) -DTBB_PARALLEL $^ -o $@ -ltbb
+
+treebench_c_bumpalloc_tbb.exe: treebench.c
+	time $(CXX) $(PAROPTS) $(CPPOPTS) -DTBB_PARALLEL -DBUMPALLOC $^ -o $@ -ltbb
+
 
 treebench_c_bumpalloc.exe: treebench.c
 	time $(CC) $(COPTS) -DBUMPALLOC $^ -o $@ 
-
-treebench_c_bumpalloc_parallel.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) -DBUMPALLOC $^ -o $@ 
 
 # this version uses 1 byte for tags
 treebench_c_bumpalloc_unaligned.exe: treebench.c
