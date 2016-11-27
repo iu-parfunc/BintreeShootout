@@ -32,7 +32,7 @@ enum Mode { Build, Sum, Add1 };
 
 enum ATTR Type { Leaf, Node };
 
-static int num_par_levels = 5;
+static int par_depth = 5;
 
 // struct Tree;
 
@@ -56,6 +56,9 @@ void deleteTree(Tree* t) {
   free(t);
 }
 
+// const size_t default_arena_size = 500000000; // 500M
+const size_t default_arena_size = 4000000000; // 4GB
+
 #ifdef BUMPALLOC
 #warning "Using bump allocator."
 // Here we use one heap_ptr per thread:
@@ -68,7 +71,7 @@ char* heap_ptr = (char*)0;
 #endif
   
 // For simplicity just use a single large slab:
-#define INITALLOC { if (! heap_ptr) { heap_ptr = malloc(500 * 1000 * 1000); } }
+#define INITALLOC { if (! heap_ptr) { heap_ptr = malloc(default_arena_size); } }
 #define ALLOC(n) (heap_ptr += n)
 // HACK, delete by rewinding:
 #define DELTREE(p) { heap_ptr = (char*)p; }
@@ -205,7 +208,7 @@ void bench_single_pass(Tree* tr, int iters)
     {
         clock_gettime(which_clock, &begin);
 #ifdef PARALLEL
-        Tree* t2 = add1TreePar(tr, num_par_levels);
+        Tree* t2 = add1TreePar(tr, par_depth);
 #else
         Tree* t2 = add1Tree(tr);
 #endif
@@ -359,21 +362,23 @@ int main(int argc, char** argv)
 #ifdef PARALLEL
     num_workers = __cilkrts_get_nworkers();
     printf("Number of parallel threads: %d\n", num_workers);
-    printf("Depth of parallel recursions: %d\n", num_par_levels);
+    printf("Depth of parallel recursions: %d\n", par_depth);
 
-#ifdef BUMPALLOC    
+#ifdef BUMPALLOC
+    printf("Arena size for bump alloc: %lld\n", default_arena_size);
     char** heap_addrs = calloc(num_workers, sizeof(char*));
     // HACK to execute on every cilk worker:
     cilk_for(int i=0; i < 100000000; i++) {
       INITALLOC;
-      heap_addrs[__cilkrts_get_worker_number()] = & heap_ptr;
+      heap_addrs[__cilkrts_get_worker_number()] = heap_ptr;
     }
     printf("   ");
     for(int i=0; i<num_workers; i++)
       printf("%p ", heap_addrs[i]);
     printf("\n  diffs: ");
     for(int i=1; i<num_workers; i++)
-      printf("%ld ", heap_addrs[i] - heap_addrs[i-1]);
+      printf("%lld ", ((long long int)heap_addrs[i]) -
+                     ((long long int)heap_addrs[i-1]));
     printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
 #endif    
 #else
