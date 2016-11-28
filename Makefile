@@ -22,10 +22,10 @@ RESOLVER=lts-6.23
 
 GHC = stack --install-ghc --resolver=$(RESOLVER) exec ghc -- -rtsopts -threaded
 
-CC ?= gcc
+CC = gcc
 # clang icc
 
-CXX ?= g++
+CXX = g++
 # clang++ icpc
 
 # time.h is missing features in c11/c++11:
