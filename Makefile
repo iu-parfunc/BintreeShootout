@@ -137,11 +137,12 @@ run_c: export CILK_NWORKERS = 2
 run_c: c	
 	$(LAUNCHER) ./treebench_c.exe                     $(DEFAULT_ARGS)
 	$(LAUNCHER) ./treebench_c_cilk.exe                $(DEFAULT_ARGS)
-	$(LAUNCHER) ./treebench_c_tbb.exe                 $(DEFAULT_ARGS)
 	$(LAUNCHER) ./treebench_c_bumpalloc_cilk.exe      $(DEFAULT_ARGS)
 	$(LAUNCHER) ./treebench_c_bumpalloc.exe           $(DEFAULT_ARGS)
-	$(LAUNCHER) ./treebench_c_bumpalloc_tbb.exe       $(DEFAULT_ARGS)
 	$(LAUNCHER) ./treebench_c_bumpalloc_unaligned.exe $(DEFAULT_ARGS)
+# See FIXME in file:
+#	$(LAUNCHER) ./treebench_c_bumpalloc_tbb.exe       $(DEFAULT_ARGS)
+#	$(LAUNCHER) ./treebench_c_tbb.exe                 $(DEFAULT_ARGS)
 
 valgrind_c:
 	$(MAKE) LAUNCHER="valgrind -q" DEPTH=4 run_c

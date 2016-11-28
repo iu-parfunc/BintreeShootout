@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include <inttypes.h>
 #include <malloc.h>
@@ -38,11 +39,12 @@ typedef char* HeapPtr;
 
 // This controls whether we use a word for tags:
 #ifdef UNALIGNED
-#warning "Using unaligned mode / packed-struct attribute"
-#define ATTR  __attribute__((__packed__))
+  #warning "Using unaligned mode / packed-struct attribute"
+  #define ATTR  __attribute__((__packed__))
 #else
-#define ATTR
-#endif
+  #define ATTR
+#endif // UNALIGNED 
+
 
 enum Mode { Build, Sum, Add1 };
 
@@ -61,8 +63,20 @@ typedef struct ATTR Tree {
     };
 } Tree;
 
-// Memory management
+// Helpers and debugging:
 //--------------------------------------------------------------------------------
+
+int dbgprintf(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+#ifdef DEBUG
+      vprintf(format, args);
+#endif
+    va_end(args);
+}
+
+// Memory m----------
 
 void deleteTree(Tree* t) {
   if (t->tag == Node) {
@@ -72,8 +86,16 @@ void deleteTree(Tree* t) {
   free(t);
 }
 
-// const size_t default_arena_size = 500000000; // 500M
-const size_t default_arena_size = 4000000000; // 4GB
+#ifdef DEBUG
+static const size_t default_arena_size = 50000000; // 50M
+#else
+static const size_t default_arena_size = 4000000000; // 4GB
+#endif
+// static const size_t default_arena_size = 500000000; // 500M
+
+
+// For parallel execution:
+static int num_workers = 1;
 
 #ifdef BUMPALLOC
   #warning "Using bump allocator."
@@ -89,6 +111,7 @@ const size_t default_arena_size = 4000000000; // 4GB
 
   // An array storing the location of each thread's heap_ptr:
   HeapPtr** heap_addrs;
+  HeapPtr* saved_heap_ptrs;
   
   // For simplicity just use a single large slab:
   #define INITALLOC { if (! heap_ptr) { heap_ptr = (HeapPtr)malloc(default_arena_size); } }
@@ -110,12 +133,22 @@ const size_t default_arena_size = 4000000000; // 4GB
 
   // Snapshot the current heap pointer value across all threads.
   void save_alloc_state() {
-
+    dbgprintf("   Saving(%d): ", num_workers);
+    for(int i=0; i<num_workers; i++) {
+      saved_heap_ptrs[i] = * heap_addrs[i];
+      dbgprintf("%p ", saved_heap_ptrs[i]);
+    }
+    dbgprintf("\n");    
   }
 
   void restore_alloc_state() {
+    dbgprintf("Restoring(%d): ", num_workers);
+    for(int i=0; i<num_workers; i++) {
+      *heap_addrs[i] = saved_heap_ptrs[i];
+      dbgprintf("%p ", saved_heap_ptrs[i]);
+    }
+    dbgprintf("\n");
   }
-
 
 #else
   // Regular malloc mode:
@@ -126,8 +159,6 @@ const size_t default_arena_size = 4000000000; // 4GB
 #endif // BUMPALLOC
 
 
-// For parallel execution:
-int num_workers = 0;
 
 //--------------------------------------------------------------------------------
 
@@ -447,18 +478,27 @@ int main(int argc, char** argv)
     num_workers = __cilkrts_get_nworkers();
   #endif
     printf("Number of parallel threads: %d\n", num_workers);
-    
-  #ifdef BUMPALLOC
-    printf("Arena size for bump alloc: %lu\n", default_arena_size);
-    heap_addrs = (HeapPtr**)calloc(num_workers, sizeof(HeapPtr*));
+#endif // PARALLEL
 
+    // This applies to both par and seq builds:
+#ifdef BUMPALLOC
+    printf("Arena size for bump alloc: %lu\n", default_arena_size);
+    heap_addrs      = (HeapPtr**)calloc(num_workers, sizeof(HeapPtr*));
+    saved_heap_ptrs = (HeapPtr*) calloc(num_workers, sizeof(HeapPtr));
+#endif
+    
+#ifdef PARALLEL    
+  #ifdef BUMPALLOC
     int dummy_iters = 100000000;
     #ifdef TBB_PARALLEL
        parallel_for( blocked_range<size_t>(0,100000000),
                     [=](const blocked_range<size_t>& r) {
                       for(size_t i=r.begin(); i!=r.end(); ++i) 
                         INITALLOC;
-                        // heap_addrs[TBB_GET_WORKER] = & heap_ptr;
+                      // FIXME: NEED TO USE TBB TLS OR FIND ANOTHER WAY TO DO THIS:
+                      // heap_addrs[TBB_GET_WORKER] = & heap_ptr;
+                      // Could scan then use CAS on the first free slot if not found:
+                      // lame_set_insert(heap_ptr, heap_addrs)
                     });
     #else
       // HACK to execute on every Cilk/TBB worker:
@@ -477,8 +517,13 @@ int main(int argc, char** argv)
       printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
   #endif
 #else
+    // NOT PARALLEL:
     INITALLOC;
-#endif
+  #ifdef BUMPALLOC    
+    heap_addrs[0] = & heap_ptr;
+  #endif    
+#endif // PARALLEL
+    
     struct timespec begin, end;
     clock_gettime(which_clock, &begin);
     Tree* tr = buildTree(depth);
