@@ -6,7 +6,7 @@
 (require/typed racket/os [gethostname (-> String)])
 
 (provide launch-benchmarks
-         launch-parallel-benchmarks
+         launch-cilk-parallel-benchmarks
          launch-ghc-parallel-benchmarks)
 
 (define host (list->string (for/list ([c (gethostname)] #:unless (char-numeric? c)) c)))
@@ -38,12 +38,12 @@ handwritten-c-packed
   (printf "Output copied to ~a\n" destdir)
   (close-output-port csv)) 
 
-(define (launch-parallel-benchmarks [exec : String] [pass-name : String] [variant : String] 
+(define (launch-cilk-parallel-benchmarks [exec : String] [pass-name : String] [variant : String] 
                                     [threads : Integer])  
   (define outfile (format "results_~a_~a.csv" variant (current-seconds)))
   (define csv (open-output-file outfile #:exists 'replace))
 
-  (parallel-driver csv exec pass-name variant threads)
+  (cilk-parallel-driver csv exec pass-name variant threads)
   (system (format "cp ~a ~a" outfile (string-append destdir outfile)))
   (printf "Output copied to ~a\n" destdir)
   (close-output-port csv)) 

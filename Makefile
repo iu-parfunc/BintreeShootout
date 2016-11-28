@@ -6,8 +6,10 @@ all: treebench_mlton.exe treebench_ocaml.exe \
      treebench_rust.exe treebench.class c ghc
 
 c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe \
-   treebench_c_parallel.exe treebench_c_bumpalloc_parallel.exe \
-   treebench_c_packed.exe treebench_c_packed_loop.exe treebench_c_packed_structs.exe treebench_c_packed_parallel3.exe
+   treebench_c_cilk.exe treebench_c_bumpalloc_cilk.exe \
+   treebench_c_tbb.exe  treebench_c_bumpalloc_tbb.exe \
+   treebench_c_packed.exe treebench_c_packed_loop.exe \
+   treebench_c_packed_structs.exe treebench_c_packed_parallel3.exe
 
 # These are unfinished, or behaving badly:
 # treebench_c_packed_parallel.exe 
@@ -28,24 +30,24 @@ RESOLVER=lts-6.23
 
 GHC = stack --install-ghc --resolver=$(RESOLVER) exec ghc -- -rtsopts -threaded
 
-CC ?= gcc
+CC = gcc
 # clang icc
 
-# CPP ?= g++
+CXX = g++
 # clang++ icpc
 
 # time.h is missing features in c11/c++11:
 CPPOPTS = -std=gnu++11 -lrt
 COPTS   = -std=gnu11   -lrt
 
-PAROPTS = -DPARALLEL -fcilkplus -lcilkrts
+PAROPTS = -DPARALLEL 
 
 ifeq ($(DEBUG),)
-  CPPOPTS += -O3 
-  COPTS += -O3 
+  CPPOPTS += -O3 -Wno-cpp
+  COPTS   += -O3 -Wno-cpp
 else
-  CPPOPTS += -O0 -g 
-  COPTS += -O0 -g
+  CPPOPTS += -O0 -g -DDEBUG
+  COPTS += -O0 -g -DDEBUG
 endif
 
 
@@ -84,14 +86,22 @@ treebench_rust_sys_alloc.exe: treebench_sys_alloc.rs
 treebench_c.exe: treebench.c
 	time $(CC) $(COPTS) $^ -o $@
 
-treebench_c_parallel.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) $^ -o $@ 
+
+treebench_c_cilk.exe: treebench.c
+	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts $^ -o $@ 
+
+treebench_c_bumpalloc_cilk.exe: treebench.c
+	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts -DBUMPALLOC $^ -o $@ 
+
+treebench_c_tbb.exe: treebench.c
+	time $(CXX) $(PAROPTS) $(CPPOPTS) -DTBB_PARALLEL $^ -o $@ -ltbb
+
+treebench_c_bumpalloc_tbb.exe: treebench.c
+	time $(CXX) $(PAROPTS) $(CPPOPTS) -DTBB_PARALLEL -DBUMPALLOC $^ -o $@ -ltbb
+
 
 treebench_c_bumpalloc.exe: treebench.c
 	time $(CC) $(COPTS) -DBUMPALLOC $^ -o $@ 
-
-treebench_c_bumpalloc_parallel.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) -DBUMPALLOC $^ -o $@ 
 
 # this version uses 1 byte for tags
 treebench_c_bumpalloc_unaligned.exe: treebench.c
@@ -162,11 +172,12 @@ sumtree_treelang_c_pointer.exe: sumtree_treelang.sexp
 # Running
 # ==============================================================================
 
+DEPTH = 20
+DEFAULT_ITERS = 17
 # Or "sum" or "build":
-MODE=add1
-DEPTH=20
-DEFAULT_ITERS=17
 DEFAULT_PASS=add1
+
+DEFAULT_ARGS= $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
 
 run_small:
 	$(MAKE) DEPTH=6 DEFAULT_ITERS=10 run_all
@@ -176,35 +187,56 @@ run_small_core:
 
 # TODO: replace with an hsbencher harness / Criterion:
 run_all: all run_core
-	./treebench_mlton.exe       $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_ocaml.exe       $(DEPTH)
-	./treebench_rust.exe        $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	./treebench_mlton.exe       $(DEFAULT_ARGS)
+	./treebench_ocaml.exe       $(DEFAULT_ARGS)
+	./treebench_rust.exe        $(DEFAULT_ARGS)
 	$(MAKE) run_chez
 	$(MAKE) run_java
 
-# the main ones we are interested in benchmarking:
-run_core: c ghc
-	./treebench_ghc_strict.exe  seq $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_ghc_lazy.exe    $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_c.exe           $(MODE) $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_c_packed.exe    $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_c_packed_loop.exe $(DEPTH) $(DEFAULT_ITERS)
+# The main ones we are interested in benchmarking:
+run_core: run_c run_ghc
 	$(MAKE) run_racket
 	$(MAKE) run_racket_packed
 
-#	./treebench_rust_sys_alloc.exe $(DEPTH) 
+#	./treebench_rust_sys_alloc.exe $(DEPTH)
+
+run_ghc: ghc
+	./treebench_ghc_strict.exe  seq $(DEPTH) $(DEFAULT_ITERS)
+	./treebench_ghc_lazy.exe    $(DEFAULT_ARGS)
+
+	./treebench_ghc_packed.exe $(DEPTH) $(DEFAULT_ITERS)
+
+
+LAUNCHER = 
+
+run_c: export CILK_NWORKERS = 2
+run_c: c	
+	$(LAUNCHER) ./treebench_c.exe                     $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_cilk.exe                $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc_cilk.exe      $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc.exe           $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc_unaligned.exe $(DEFAULT_ARGS)
+# See FIXME in file:
+#	$(LAUNCHER) ./treebench_c_bumpalloc_tbb.exe       $(DEFAULT_ARGS)
+#	$(LAUNCHER) ./treebench_c_tbb.exe                 $(DEFAULT_ARGS)
+
+	./treebench_c_packed.exe      $(DEFAULT_ARGS)
+	./treebench_c_packed_loop.exe $(DEPTH) $(DEFAULT_ITERS)
+
+valgrind_c:
+	$(MAKE) LAUNCHER="valgrind -q" DEPTH=4 run_c
 
 run_chez:
-	scheme --script treebench.ss $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	scheme --script treebench.ss $(DEFAULT_ARGS)
 
 run_racket:
-	racket treebench.rkt $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	racket treebench.rkt         $(DEFAULT_ARGS)
 
 run_racket_packed:
 	racket treebench_packed.rkt $(DEPTH)
 
 run_java: treebench.class
-	java treebench $(DEFAULT_PASS) $(DEPTH) 33
+	java treebench               $(DEFAULT_ARGS)
 
 # Example of how to run with Jemalloc.
 # Jemalloc significantly DECREASES throughput, and then does not SCALE WELL:
@@ -231,4 +263,6 @@ docker:
 clean:
 	rm -f *.exe *.o *.hi treebench treebench_lazy *.cmi *.cmo *.cmx
 
-.PHONY: all clean ghc run_chez run_java run_all run_small c ghc buildtree stack_build ocaml mlton fsharp
+.PHONY: all clean ghc c ghc buildtree stack_build ocaml mlton fsharp 
+.PHONY: run_chez run_java run_all run_small run_small_core run_c run_ghc
+
