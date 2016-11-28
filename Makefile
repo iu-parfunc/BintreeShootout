@@ -131,14 +131,20 @@ run_ghc: ghc
 	./treebench_ghc_strict.exe  seq $(DEPTH) $(DEFAULT_ITERS)
 	./treebench_ghc_lazy.exe    $(DEFAULT_ARGS)
 
-run_c: c
-	./treebench_c.exe                     $(DEFAULT_ARGS)
-	./treebench_c_cilk.exe                $(DEFAULT_ARGS)
-	./treebench_c_tbb.exe                 $(DEFAULT_ARGS)
-	./treebench_c_bumpalloc_cilk.exe      $(DEFAULT_ARGS)
-	./treebench_c_bumpalloc.exe           $(DEFAULT_ARGS)
-	./treebench_c_bumpalloc_tbb.exe       $(DEFAULT_ARGS)
-	./treebench_c_bumpalloc_unaligned.exe $(DEFAULT_ARGS)
+LAUNCHER = 
+
+run_c: export CILK_NWORKERS = 2
+run_c: c	
+	$(LAUNCHER) ./treebench_c.exe                     $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_cilk.exe                $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_tbb.exe                 $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc_cilk.exe      $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc.exe           $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc_tbb.exe       $(DEFAULT_ARGS)
+	$(LAUNCHER) ./treebench_c_bumpalloc_unaligned.exe $(DEFAULT_ARGS)
+
+valgrind_c:
+	$(MAKE) LAUNCHER="valgrind -q" DEPTH=4 run_c
 
 run_chez:
 	scheme --script treebench.ss $(DEFAULT_ARGS)
