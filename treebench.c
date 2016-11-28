@@ -33,6 +33,8 @@
 typedef long long int Num;
 // typedef int64_t Num;
 
+typedef char* HeapPtr;
+
 
 // This controls whether we use a word for tags:
 #ifdef UNALIGNED
@@ -74,38 +76,55 @@ void deleteTree(Tree* t) {
 const size_t default_arena_size = 4000000000; // 4GB
 
 #ifdef BUMPALLOC
-#warning "Using bump allocator."
-// Here we use one heap_ptr per thread:
+  #warning "Using bump allocator."
+  // Here we use one heap_ptr per thread:
 
- #ifdef PARALLEL
- // This doesn't seem to make a noticible difference in performance.  But just
- // to be careful, we disable it when compiling in single-threaded mode.
- __thread char* heap_ptr = (char*)0;
- #else
- char* heap_ptr = (char*)0;
- #endif
+  #ifdef PARALLEL
+  // This doesn't seem to make a noticible difference in performance.  But just
+  // to be careful, we disable it when compiling in single-threaded mode.
+  __thread HeapPtr heap_ptr = (HeapPtr)NULL;
+  #else
+  HeapPtr heap_ptr = (HeapPtr)0;
+  #endif // PARALLEL
+
+  // An array storing the location of each thread's heap_ptr:
+  HeapPtr** heap_addrs;
   
-// For simplicity just use a single large slab:
-#define INITALLOC { if (! heap_ptr) { heap_ptr = (char*)malloc(default_arena_size); } }
+  // For simplicity just use a single large slab:
+  #define INITALLOC { if (! heap_ptr) { heap_ptr = (HeapPtr)malloc(default_arena_size); } }
 
-#ifdef DEBUG
-  char* my_abort() {
-    fprintf(stderr, "Error: this thread's heap was not initalized.\n");
-    abort();
-    return NULL;
+  #ifdef DEBUG
+   char* my_abort() {
+     fprintf(stderr, "Error: this thread's heap was not initalized.\n");
+     abort();
+     return NULL;
+   }
+   #define ALLOC(n) (heap_ptr ? heap_ptr += n : my_abort())
+  #else
+   #define ALLOC(n) (heap_ptr += n)
+  #endif // DEBUG
+
+  // HACK, delete by rewinding:
+  // #define DELTREE(p) { heap_ptr = (char*)p; }
+  #define DELTREE(p) { }
+
+  // Snapshot the current heap pointer value across all threads.
+  void save_alloc_state() {
+
   }
-  #define ALLOC(n) (heap_ptr ? heap_ptr += n : my_abort())
-#else
-  #define ALLOC(n) (heap_ptr += n)
-#endif
 
-// HACK, delete by rewinding:
-#define DELTREE(p) { heap_ptr = (char*)p; }
+  void restore_alloc_state() {
+  }
+
+
 #else
-#define INITALLOC {}
-#define ALLOC malloc
-#define DELTREE deleteTree
-#endif
+  // Regular malloc mode:
+  #define INITALLOC {}
+  #define ALLOC malloc
+  #define DELTREE deleteTree
+
+#endif // BUMPALLOC
+
 
 // For parallel execution:
 int num_workers = 0;
@@ -242,12 +261,19 @@ void bench_single_pass(Tree* tr, int iters)
     for (int i=0; i<iters; i++)
     {
         clock_gettime(which_clock, &begin);
+#ifdef BUMPALLOC
+        save_alloc_state();
+#endif        
 #ifdef PARALLEL
         Tree* t2 = add1TreePar(tr, par_depth);
 #else
         Tree* t2 = add1Tree(tr);
 #endif
+#ifdef BUMPALLOC
+        restore_alloc_state();
+#else
         DELTREE(t2);
+#endif        
         clock_gettime(which_clock, &end);
         double time_spent = difftimespecs(&begin, &end);
         if(iters < 100) {
@@ -279,6 +305,9 @@ void bench_add1_batch(Tree* tr, int iters)
     clock_gettime(which_clock, &begin);
     for (int i=0; i<iters; i++)
     {
+#ifdef BUMPALLOC
+      save_alloc_state();
+#endif      
 #ifdef PARALLEL
         Tree* t2 = add1TreePar(tr, par_depth);
 #else
@@ -286,8 +315,10 @@ void bench_add1_batch(Tree* tr, int iters)
 #endif
 #ifdef BUMPALLOC
         allocated_bytes = (long)(heap_ptr - starting_heap_pointer);
-#endif
+        restore_alloc_state();
+#else
         DELTREE(t2);
+#endif
     }
     clock_gettime(which_clock, &end);
 #ifdef BUMPALLOC
@@ -316,18 +347,26 @@ void bench_build_batch(int depth, int iters)
     clock_gettime(which_clock, &begin);
     for (int i=0; i<iters; i++)
     {
-#ifdef PARALLEL
-      printf("No parallel build yet...\n");
-      exit(1);
-#else      
-      t2 = buildTree(depth);      
+#ifdef BUMPALLOC      
+        save_alloc_state();   
 #endif
+
+#ifdef PARALLEL
+        printf("No parallel build yet...\n");
+        exit(1);
+#else
+        t2 = buildTree(depth);      
+#endif 
+      
 #ifdef BUMPALLOC
         allocated_bytes = (long)(heap_ptr - starting_heap_pointer);
+        restore_alloc_state();
+#else
+        DELTREE(t2);
 #endif
-      DELTREE(t2);
     }
     clock_gettime(which_clock, &end);
+    
 #ifdef BUMPALLOC
     printf("Bytes allocated during whole batch:\n");
     printf("BYTESALLOC: %ld\n", allocated_bytes);
@@ -410,8 +449,8 @@ int main(int argc, char** argv)
     printf("Number of parallel threads: %d\n", num_workers);
     
   #ifdef BUMPALLOC
-    printf("Arena size for bump alloc: %lld\n", default_arena_size);
-    char** heap_addrs = (char**)calloc(num_workers, sizeof(char*));
+    printf("Arena size for bump alloc: %lu\n", default_arena_size);
+    heap_addrs = (HeapPtr**)calloc(num_workers, sizeof(HeapPtr*));
 
     int dummy_iters = 100000000;
     #ifdef TBB_PARALLEL
@@ -419,23 +458,23 @@ int main(int argc, char** argv)
                     [=](const blocked_range<size_t>& r) {
                       for(size_t i=r.begin(); i!=r.end(); ++i) 
                         INITALLOC;
-                        // heap_addrs[TBB_GET_WORKER] = heap_ptr;
+                        // heap_addrs[TBB_GET_WORKER] = & heap_ptr;
                     });
     #else
       // HACK to execute on every Cilk/TBB worker:
       cilk_for(int i=0; i < dummy_iters; i++) {
         INITALLOC;
-        heap_addrs[__cilkrts_get_worker_number()] = heap_ptr;
+        heap_addrs[__cilkrts_get_worker_number()] = & heap_ptr;
       }
     #endif
     
     printf("   ");
     for(int i=0; i<num_workers; i++)
-      printf("%p ", heap_addrs[i]);
+      printf("%p ", *heap_addrs[i]);
     printf("\n  diffs: ");
     for(int i=1; i<num_workers; i++)
-      printf("%lld ", ((long long int)heap_addrs[i]) -
-                     ((long long int)heap_addrs[i-1]));
+      printf("%lld ", ((long long int)*heap_addrs[i]) -
+                      ((long long int)*heap_addrs[i-1]));
     printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
   #endif
 #else

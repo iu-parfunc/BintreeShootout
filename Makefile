@@ -35,8 +35,8 @@ COPTS   = -std=gnu11   -lrt
 PAROPTS = -DPARALLEL 
 
 ifeq ($(DEBUG),)
-  CPPOPTS += -O3 
-  COPTS += -O3 
+  CPPOPTS += -O3 -Wno-cpp
+  COPTS   += -O3 -Wno-cpp
 else
   CPPOPTS += -O0 -g -DDEBUG
   COPTS += -O0 -g -DDEBUG
