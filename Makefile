@@ -101,11 +101,12 @@ treebench.class: treebench.java
 # Running
 # ==============================================================================
 
-DEPTH=20
-DEFAULT_ITERS=17
+DEPTH = 20
+DEFAULT_ITERS = 17
 # Or "sum" or "build":
 DEFAULT_PASS=add1
 
+DEFAULT_ARGS= $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
 
 run_small:
 	$(MAKE) DEPTH=6 DEFAULT_ITERS=10 run_all
@@ -115,29 +116,38 @@ run_small_core:
 
 # TODO: replace with an hsbencher harness / Criterion:
 run_all: all run_core
-	./treebench_mlton.exe       $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_ocaml.exe       $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_rust.exe        $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	./treebench_mlton.exe       $(DEFAULT_ARGS)
+	./treebench_ocaml.exe       $(DEFAULT_ARGS)
+	./treebench_rust.exe        $(DEFAULT_ARGS)
 	$(MAKE) run_chez
 	$(MAKE) run_java
 
 # the main ones we are interested in benchmarking:
-run_core: c ghc
-	./treebench_ghc_strict.exe  seq $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_ghc_lazy.exe    $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
-	./treebench_c.exe           $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+run_core: run_c run_ghc
 	$(MAKE) run_racket
+#	./treebench_rust_sys_alloc.exe $(DEPTH)
 
-#	./treebench_rust_sys_alloc.exe $(DEPTH) 
+run_ghc: ghc
+	./treebench_ghc_strict.exe  seq $(DEPTH) $(DEFAULT_ITERS)
+	./treebench_ghc_lazy.exe    $(DEFAULT_ARGS)
+
+run_c: c
+	./treebench_c.exe                     $(DEFAULT_ARGS)
+	./treebench_c_cilk.exe                $(DEFAULT_ARGS)
+	./treebench_c_tbb.exe                 $(DEFAULT_ARGS)
+	./treebench_c_bumpalloc_cilk.exe      $(DEFAULT_ARGS)
+	./treebench_c_bumpalloc.exe           $(DEFAULT_ARGS)
+	./treebench_c_bumpalloc_tbb.exe       $(DEFAULT_ARGS)
+	./treebench_c_bumpalloc_unaligned.exe $(DEFAULT_ARGS)
 
 run_chez:
-	scheme --script treebench.ss $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	scheme --script treebench.ss $(DEFAULT_ARGS)
 
 run_racket:
-	racket treebench.rkt         $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	racket treebench.rkt         $(DEFAULT_ARGS)
 
 run_java: treebench.class
-	java treebench               $(DEFAULT_PASS) $(DEPTH) $(DEFAULT_ITERS)
+	java treebench               $(DEFAULT_ARGS)
 
 # Example of how to run with Jemalloc.
 # Jemalloc significantly DECREASES throughput, and then does not SCALE WELL:
@@ -164,4 +174,6 @@ docker:
 clean:
 	rm -f *.exe *.o *.hi treebench treebench_lazy *.cmi *.cmo *.cmx
 
-.PHONY: all clean ghc run_chez run_java run_all run_small c ghc buildtree stack_build ocaml mlton fsharp
+.PHONY: all clean ghc c ghc buildtree stack_build ocaml mlton fsharp 
+.PHONY: run_chez run_java run_all run_small run_small_core run_c run_ghc
+

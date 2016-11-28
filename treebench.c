@@ -466,16 +466,15 @@ int main(int argc, char** argv)
         INITALLOC;
         heap_addrs[__cilkrts_get_worker_number()] = & heap_ptr;
       }
+      printf("   ");
+      for(int i=0; i<num_workers; i++)
+        printf("%p ", *heap_addrs[i]);
+      printf("\n  diffs: ");
+      for(int i=1; i<num_workers; i++)
+        printf("%lld ", ((long long int)*heap_addrs[i]) -
+                        ((long long int)*heap_addrs[i-1]));
     #endif
-    
-    printf("   ");
-    for(int i=0; i<num_workers; i++)
-      printf("%p ", *heap_addrs[i]);
-    printf("\n  diffs: ");
-    for(int i=1; i<num_workers; i++)
-      printf("%lld ", ((long long int)*heap_addrs[i]) -
-                      ((long long int)*heap_addrs[i-1]));
-    printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
+      printf("\nDone with hacky parallel/bumpalloc allocator init: \n");
   #endif
 #else
     INITALLOC;
