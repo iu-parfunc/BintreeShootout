@@ -74,7 +74,7 @@
   (for ([args (in-range 1 (+ 1 ARGMAX))])
     (printf "ARGS: ~a\n" args)
     (printf "running process ~a\n" exec)
-    (let loop ([iters 1])
+    (let loop ([iters 10])
       (printf "iters ~a\n" iters)
       (define cmd (format "~a ~a ~a" exec args iters))
 
