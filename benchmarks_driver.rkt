@@ -9,7 +9,8 @@
          cilk-parallel-driver 
          ghc-parallel-driver)
 
-(define target-time 1.0)
+(define INITIAL_ITERS 10)
+(define target-time 2.0)
 (define ARGMAX 25)
 ;; Retry a run that errors up to this many times.  This is here
 ;; because we triggered a weird Cilk bug;
@@ -74,7 +75,7 @@
   (for ([args (in-range 1 (+ 1 ARGMAX))])
     (printf "ARGS: ~a\n" args)
     (printf "running process ~a\n" exec)
-    (let loop ([iters 10])
+    (let loop ([iters INITIAL_ITERS])
       (printf "iters ~a\n" iters)
       (define cmd (format "~a ~a ~a" exec args iters))
 
@@ -125,7 +126,7 @@
   
   ;; loop through args 1 to 25
   (for ([args (in-range 1 (+ 1 ARGMAX))])
-    (let loop ([iters 1])
+    (let loop ([iters INITIAL_ITERS])
       (printf "iters ~a\n" iters)
       ; (define cmd (format "~a ~a ~a" (make-exec threads) args iters))
       (define cmd (make-exec threads args iters))

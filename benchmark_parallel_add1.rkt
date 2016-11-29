@@ -5,8 +5,8 @@
 (define PASSNAME "treebench")
 
 ;; 16 threads for cutter, 18 for swarm:
-(define MAXTHREADS 16)
-; (define MAXTHREADS 18)
+; (define MAXTHREADS 16)
+(define MAXTHREADS 18)
 
 (for ((threads (in-range MAXTHREADS 0 -1)))
   (printf "\nBenchmarking THREADS=~a\n" threads)
