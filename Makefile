@@ -7,9 +7,10 @@ all: treebench_mlton.exe treebench_ocaml.exe \
 
 c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe \
    treebench_c_cilk.exe treebench_c_bumpalloc_cilk.exe \
-   treebench_c_tbb.exe  treebench_c_bumpalloc_tbb.exe \
    treebench_c_packed.exe treebench_c_packed_loop.exe \
    treebench_c_packed_structs.exe treebench_c_packed_parallel3.exe
+
+#    treebench_c_tbb.exe  treebench_c_bumpalloc_tbb.exe \
 
 # These are unfinished, or behaving badly:
 # treebench_c_packed_parallel.exe 

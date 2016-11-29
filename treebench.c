@@ -50,7 +50,8 @@ enum Mode { Build, Sum, Add1 };
 
 enum ATTR Type { Leaf, Node };
 
-static int par_depth = 5;
+// static int par_depth = 5;
+static int par_depth = 8;
 
 // struct Tree;
 

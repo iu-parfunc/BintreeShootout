@@ -15,7 +15,7 @@
 #endif
 
 // The bottom K layers of the tree have NO indirections.
-#define SEQLAYERS 15
+#define PARDEPTH 8
 
 enum Tree {
     Leaf,
@@ -32,7 +32,7 @@ typedef long long Num;
 typedef uint32_t TreeSize;
 
 // Helper function
-TreeRef fillTree(TreeRef cursor, int n, Num root) {
+TreeRef fillTree(TreeRef cursor, int par, int n, Num root) {
   // printf("  filltree: %p, n=%d, fill=%lld\n", cursor, n, root); fflush(stdout);
 
   if (n == 0) {
@@ -41,21 +41,21 @@ TreeRef fillTree(TreeRef cursor, int n, Num root) {
     *((Num*)cursor) = root; // Unaligned!
     // printf("; wrote tag %d, payload %lld\n", Leaf, root); fflush(stdout);
     return (cursor + sizeof(Num));
-  } else if (n > SEQLAYERS) {
+  } else if (par > 0) {
     *cursor = NodePrime;
     cursor++;
     TreeSize* left_size = (TreeSize*)cursor;
     cursor += sizeof(TreeSize);
 
-    char* cur2 = fillTree(cursor, n-1, root);
+    char* cur2 = fillTree(cursor, par-1, n-1, root);
     *left_size = cur2 - cursor;
-    return fillTree(cur2, n-1, root + (1<<(n-1)));
+    return fillTree(cur2, par-1, n-1, root + (1<<(n-1)));
     
   } else {
     *cursor = Node;
     // printf("; wrote tag %d\n", Node); fflush(stdout);
-    char* cur2 = fillTree(cursor+1, n-1, root);
-    return fillTree(cur2, n-1, root + (1<<(n-1)));
+    char* cur2 = fillTree(cursor+1, 0, n-1, root);
+    return fillTree(cur2, 0, n-1, root + (1<<(n-1)));
   }
 }
 
@@ -72,11 +72,11 @@ size_t treeSize(int n) {
 }
 
 TreeRef buildTree(int n) {
-  printf("  Running parallel version with SEQLAYERS=%d\n", SEQLAYERS);
+  printf("  Running parallel version with PARDEPTH=%d\n", PARDEPTH);
   
   size_t bytes = treeSize(n);
   char* buf = malloc(bytes);
-  char* res = fillTree(buf, n, 1);
+  char* res = fillTree(buf, PARDEPTH, n, 1);
   printf("  wrote %d bytes while building tree\n", (int)(res - buf));  
   return buf;
 }
