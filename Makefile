@@ -136,11 +136,11 @@ treebench.class: treebench.java
 # ==============================================================================
 
 TREELANGDIR=$(shell cd ..; pwd)
-TREEC=$(shell cd ../TreeLang; stack exec -- which treec)
+TREEC=$(shell cd ../Gibbon; stack exec -- which treec)
 
 # Make sure the compiler is build and not stale:
 stack_build:
-	cd $(TREELANGDIR)/TreeLang; stack build
+	cd $(TREELANGDIR)/Gibbon; stack build
 
 buildtree: stack_build buildtree_treelang_c_packed.exe
 	raco make buildtree_treelang.sexp

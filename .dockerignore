@@ -1,1 +1,14 @@
-.gitignore
+*.exe
+*.class
+*.exe
+*.cmi
+*.cmx
+*.gz
+/treebench
+/treebench_mlton
+/treebench_lazy
+/treebench_lazy_ghc
+/treebench_strict_ghc
+ChezScheme-9.4
+*.s
+a.out
