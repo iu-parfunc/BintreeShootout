@@ -1,7 +1,7 @@
 #lang typed/racket/base
 
 (require racket/system
-	 "treebench_treelang.rkt")
+	 "treebench_gibbon.rkt")
 ;; Infrastructure to set up and run the benchmark.
 
 
