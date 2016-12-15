@@ -142,15 +142,15 @@ TREEC=$(shell cd ../gibbon-compiler; stack exec -- which treec)
 stack_build:
 	cd $(TREELANGDIR)/gibbon-compiler; stack build
 
-buildtree: stack_build buildtree_treelang_c_packed.exe
-	raco make buildtree_treelang.sexp
-# buildtree_treelang_c_pointer.exe
+buildtree: stack_build buildtree_gibbon_c_packed.exe
+	raco make buildtree_gibbon.sexp
+# buildtree_gibbon_c_pointer.exe
 
 # Here we control the C file output in case we build in parallel:
-buildtree_treelang_c_packed.exe: buildtree_treelang.sexp
+buildtree_gibbon_c_packed.exe: buildtree_gibbon.sexp
 	$(TREEC)  --packed --cfile=$(@:.exe=.c) --exefile $@ $^
 
-buildtree_treelang_c_pointer.exe: buildtree_treelang.sexp
+buildtree_gibbon_c_pointer.exe: buildtree_gibbon.sexp
 	$(TREEC)  --pointer --cfile=$(@:.exe=.c) --exefile $@ $^
 
 # SumTree benchmark
@@ -158,13 +158,13 @@ buildtree_treelang_c_pointer.exe: buildtree_treelang.sexp
 # Identical to buildtree.  s/buildtree/sumtree/
 
 # --pointer not working yet:
-sumtree: stack_build sumtree_treelang_c_packed.exe
-	raco make sumtree_treelang.sexp
+sumtree: stack_build sumtree_gibbon_c_packed.exe
+	raco make sumtree_gibbon.sexp
 
-sumtree_treelang_c_packed.exe: sumtree_treelang.sexp
+sumtree_gibbon_c_packed.exe: sumtree_gibbon.sexp
 	$(TREEC)  --packed --cfile=$(@:.exe=.c) --exefile $@ $^
 
-sumtree_treelang_c_pointer.exe: sumtree_treelang.sexp
+sumtree_gibbon_c_pointer.exe: sumtree_gibbon.sexp
 	$(TREEC)  --pointer --cfile=$(@:.exe=.c) --exefile $@ $^
 
 
