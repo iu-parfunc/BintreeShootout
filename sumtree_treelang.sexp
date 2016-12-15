@@ -1,4 +1,4 @@
-#lang s-exp "../gibbon/gibbon.rkt"
+#lang s-exp "../gibbon/main.rkt"
 
 (data Tree
       [Leaf Int]
