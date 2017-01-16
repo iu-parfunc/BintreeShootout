@@ -6,7 +6,7 @@
 
 ;; variant: treelang-racket
 
-;;(launch-benchmarks "racket treebench_gibbon.rkt" PASSNAME "treelang-racket")
+;;(launch-benchmarks "racket treebench_gibbon.gib" PASSNAME "treelang-racket")
 
 ;;(launch-benchmarks "./treebench_c_bumpalloc.exe add1 " PASSNAME "handwritten-c-pointer-bumpalloc")
 
