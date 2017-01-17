@@ -12,7 +12,7 @@
 
 ;;(launch-benchmarks "./treebench_c_bumpalloc_unaligned.exe" PASSNAME ...)
 
-(launch-benchmarks "./treebench_c.exe add1 " PASSNAME "handwritten-c-pointer")
+; (launch-benchmarks "./treebench_c.exe add1 " PASSNAME "handwritten-c-pointer")
 
 ;;(launch-benchmarks "./treebench_c_packed.exe" PASSNAME "handwritten-c-packed")
 
@@ -41,3 +41,10 @@
 ;;(launch-benchmarks "./treebench_ocaml.exe add1 " PASSNAME "handwritten-ocaml")
 
 ;;(launch-benchmarks "./treebench_ghc_lazy.exe add1 " PASSNAME "handwritten-ghc")
+
+
+; (launch-benchmarks "./add1_packed.exe " PASSNAME "treelang-c-packed")
+
+; (launch-benchmarks "./add1_pointer.exe " PASSNAME "treelang-c-pointer")
+
+ (launch-benchmarks "./add1_bumpalloc.exe " PASSNAME "treelang-c-bumpalloc")

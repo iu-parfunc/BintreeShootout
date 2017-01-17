@@ -18,4 +18,5 @@
 
 ;; Here we time a fold over the tree:
 (let ((tr0 : Tree (build-tree (size-param))))
-  (iterate (sum-tree tr0)))
+  (let ((ig : Int (iterate (sum-tree tr0))))
+    True))
