@@ -33,13 +33,19 @@ RUN cd /tmp/ && \
   ln -s /racket/bin/* /usr/local/bin/ && \
   rm -rf racket-6.7-x86_64-linux.sh
 
+## LLVM and CLANG 3.9
+RUN wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-3.9 main" && \
+    apt-get update && \
+    apt-get -y install clang-3.9 llvm-3.9
+
 # ------------------------------------------------------------
 
 ADD . /BintreeBench
 
 # Build all the benchmarks:
 RUN scheme --version && rustc --version && racket --version && \
-    cd /BintreeBench && make 
+    cd /BintreeBench && make
 
 # For testing purposes, make sure they all run:
 RUN cd /BintreeBench && make run_small
