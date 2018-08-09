@@ -13,14 +13,14 @@ c: treebench_c.exe treebench_c_bumpalloc.exe treebench_c_bumpalloc_unaligned.exe
 #    treebench_c_tbb.exe  treebench_c_bumpalloc_tbb.exe \
 
 # These are unfinished, or behaving badly:
-# treebench_c_packed_parallel.exe 
+# treebench_c_packed_parallel.exe
 # treebench_c_packed_parallel2.exe
 
 ghc: treebench_ghc_strict.exe treebench_ghc_lazy.exe treebench_ghc_packed.exe
 
 
 # Disabling for now, requires beta channel of rust:
-# treebench_rust_sys_alloc.exe 
+# treebench_rust_sys_alloc.exe
 
 # Unfinished:
 # treebench_rust_packed.exe
@@ -41,7 +41,7 @@ CXX = g++
 CPPOPTS = -std=gnu++11 -lrt
 COPTS   = -std=gnu11   -lrt
 
-PAROPTS = -DPARALLEL 
+PAROPTS = -DPARALLEL
 
 ifeq ($(DEBUG),)
   CPPOPTS += -O3 -Wno-cpp
@@ -89,10 +89,10 @@ treebench_c.exe: treebench.c
 
 
 treebench_c_cilk.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts $^ -o $@ 
+	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts $^ -o $@
 
 treebench_c_bumpalloc_cilk.exe: treebench.c
-	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts -DBUMPALLOC $^ -o $@ 
+	time $(CC) $(PAROPTS) $(COPTS) -fcilkplus -lcilkrts -DBUMPALLOC $^ -o $@
 
 treebench_c_tbb.exe: treebench.c
 	time $(CXX) $(PAROPTS) $(CPPOPTS) -DTBB_PARALLEL $^ -o $@ -ltbb
@@ -102,45 +102,45 @@ treebench_c_bumpalloc_tbb.exe: treebench.c
 
 
 treebench_c_bumpalloc.exe: treebench.c
-	time $(CC) $(COPTS) -DBUMPALLOC $^ -o $@ 
+	time $(CC) $(COPTS) -DBUMPALLOC $^ -o $@
 
 # this version uses 1 byte for tags
 treebench_c_bumpalloc_unaligned.exe: treebench.c
-	time $(CC) $(COPTS) -DBUMPALLOC -DUNALIGNED $^ -o $@ 
+	time $(CC) $(COPTS) -DBUMPALLOC -DUNALIGNED $^ -o $@
 
 HEADERS=include/main_fragment_packed.h
 
 treebench_c_packed.exe: treebench_packed.c $(HEADERS)
-	time $(CC) $(COPTS) treebench_packed.c -o $@ 
+	time $(CC) $(COPTS) treebench_packed.c -o $@
 
 treebench_c_packed_loop.exe: treebench_packed_loop.c $(HEADERS)
-	time $(CC) $(COPTS) treebench_packed_loop.c -o $@ 
+	time $(CC) $(COPTS) treebench_packed_loop.c -o $@
 
 treebench_c_packed_structs.exe: treebench_packed_structs.c $(HEADERS)
-	time $(CC) $(COPTS) treebench_packed_structs.c -o $@ 
+	time $(CC) $(COPTS) treebench_packed_structs.c -o $@
 
 treebench_c_packed_parallel.exe: treebench_packed_parallel.c
-	time $(CPP) -DPARALLEL -fpermissive -fcilkplus $(CPPOPTS) $^ -o $@ 
+	time $(CPP) -DPARALLEL -fpermissive -fcilkplus $(CPPOPTS) $^ -o $@
 
 treebench_c_packed_parallel2.exe: treebench_packed_parallel2.c
 	time $(CC) -DPARALLEL -fcilkplus $(COPTS) $^ -o $@
 
 treebench_c_packed_parallel3.exe: treebench_packed_parallel3.c $(HEADERS)
-	time $(CC) -DPARALLEL -fcilkplus $(COPTS) treebench_packed_parallel3.c -o $@ 
+	time $(CC) -DPARALLEL -fcilkplus $(COPTS) treebench_packed_parallel3.c -o $@
 
 treebench.class: treebench.java
-	time javac $^ 
+	time javac $^
 
 
 # BuildTree benchmark
 # ==============================================================================
 
-TREELANGDIR=$(shell cd ..; pwd)
+GIBBONDIR=$(shell cd ..; pwd)
 TREEC=$(shell cd ../gibbon-compiler; stack exec -- which treec)
 
 # Make sure the compiler is build and not stale:
 stack_build:
-	cd $(TREELANGDIR)/gibbon-compiler; stack build
+	cd $(GIBBONDIR)/gibbon-compiler; stack build
 
 buildtree: stack_build buildtree_gibbon_c_packed.exe
 	raco make buildtree_gibbon.sexp
@@ -208,10 +208,10 @@ run_ghc: ghc
 	./treebench_ghc_packed.exe $(DEPTH) $(DEFAULT_ITERS)
 
 
-LAUNCHER = 
+LAUNCHER =
 
 run_c: export CILK_NWORKERS = 2
-run_c: c	
+run_c: c
 	$(LAUNCHER) ./treebench_c.exe                     $(DEFAULT_ARGS)
 	$(LAUNCHER) ./treebench_c_cilk.exe                $(DEFAULT_ARGS)
 	$(LAUNCHER) ./treebench_c_bumpalloc_cilk.exe      $(DEFAULT_ARGS)
@@ -250,7 +250,7 @@ run_java: treebench.class
 # That's the best time.  The time on >1 core is worse.  (Well, it does
 # narrowly catch back up at 12 cores.)
 run_jemalloc:
-# I see a 
+# I see a
 	time CILK_NWORKERS=8 LD_PRELOAD=libjemalloc.so  ./treebench_c_parallel.exe add1 20 10
 # One especially weird thing is that the SEQUENTIAL version shows a
 # slowdown with scaling Cilk workers:
@@ -264,6 +264,6 @@ docker:
 clean:
 	rm -f *.exe *.o *.hi treebench treebench_lazy *.cmi *.cmo *.cmx
 
-.PHONY: all clean ghc c ghc buildtree stack_build ocaml mlton fsharp 
+.PHONY: all clean ghc c ghc buildtree stack_build ocaml mlton fsharp
 .PHONY: run_chez run_java run_all run_small run_small_core run_c run_ghc
 
