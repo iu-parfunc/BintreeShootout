@@ -51,6 +51,11 @@ treebench_ghc_strict.exe: treebench.hs
 treebench_ghc_lazy.exe: treebench_lazy.hs
 	time $(GHC) -odir ghc_lazy/ -O2 -rtsopts $^ -o $@
 
+stalin: treebench_stalin.exe
+treebench_stalin.exe: treebench_stalin.sc
+	time stalin -On -Ob -Om -Or -Ot -d -d1 -k -copt -O3 $^
+	mv treebench_stalin $@ 
+
 mlton: treebench_mlton.exe
 treebench_mlton.exe: treebench.sml
 	time mlton -output $@ $^
