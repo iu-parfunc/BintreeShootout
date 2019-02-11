@@ -83,10 +83,23 @@ i5-2400).
 
 Tree depth 20.  Below is the per-iter add1 avg, in seconds:
 
- * Racket   0.07470
- * Stalin   0.03749
- * Chez     0.02235
- * Java     0.01952
- * MLton    0.00894
+ * OCaml          0.22029
+ * GHC            0.08359
+ * GCC (malloc)   0.08260
+ * Racket         0.07470
+ * Stalin         0.03749
+ * Chez           0.02235
+ * Java           0.01952
+ * GCC (arena)    0.01230
+ * MLton          0.00894
+ * Gibbon/packed  0.00397
 
  * Stalin (-On only) 0.05882
+
+After the expt => fx:expt fix:
+
+ * Stalin         0.02350
+
+
+
+

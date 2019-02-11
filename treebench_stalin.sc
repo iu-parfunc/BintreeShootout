@@ -1,3 +1,7 @@
+
+(define (fx:expt m n)
+   (let loop ((n n) (c 1)) (if (zero? n) c (loop (- n 1) (* m c)))))
+
 (define (build-tree n)
   (define (go root n)
     (if (zero? n)
@@ -32,6 +36,6 @@
     (let* ((end-time (current-second))
            (batchseconds (- end-time start-time)))
       (display "BATCHTIME: ") (display batchseconds) (newline)
-      (display "AVG: ") (display (/ batchseconds iters)) (newline)
+      (display "AVGPERITER: ") (display (/ batchseconds iters)) (newline)
       )))
 
